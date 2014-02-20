@@ -43,7 +43,7 @@ class KnowledgeBase(object):
 
     @property
     def graph(self):
-        return self.entities.keys(), self._links
+        return self.entities, self._links
 
 
 def add_category_entities(kb, category, seq, default_ner='MISC'):
@@ -60,9 +60,9 @@ def add_category_entities(kb, category, seq, default_ner='MISC'):
         # Coerce a string to a 1-tuple.
         if not aliases:
             aliases = ()
-        elif type(aliases) is str:
+        elif isinstance(aliases, str) or isinstance(aliases, unicode):
             aliases = (aliases,)
-        # Coerce a non-existant NER to the 'MISC' type.
+        # Coerce a non-existent NER to the 'MISC' type.
         if not ner_type:
             ner_type = default_ner
 
@@ -74,30 +74,4 @@ def add_category_entities(kb, category, seq, default_ner='MISC'):
 
     return entities
 
-
-def dot_graph(kb):
-    print("graph {")
-
-    entities, vertices = kb.graph
-
-    for entity in entities:
-        _ner, aliases = kb.entities.get(entity) or ('MISC', ())
-        # Note: using the hash as the ID is susceptible to collisions,
-        # but it's the easiest thing to do right now.
-        eid = hash(entity)
-
-        name, category = entity
-        
-        line = r'  {eid:d}[label=< <B>{name}</B><BR/><I>{category}</I> >];'
-        print(line.format(**locals()))
-
-    print('')
-
-    for pair, count in vertices.items():
-        a, b = map(hash, pair)
-        # TODO: incorporate the count in the styles.
-        line = '  {a:d} -- {b:d};' 
-        print(line.format(**locals()))
-
-    print("}")
 
