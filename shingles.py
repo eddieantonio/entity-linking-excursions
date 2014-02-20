@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+# coding: UTF-8
 
 from itertools import islice, izip, chain
 
 # Returns a set of shingles for the given entity.
 def shingles(entity, w=3):
-    """
+    u"""
     Performs charachter-wise shingling on an entity. Natural language
     processing!  Returns the (frozen) set of all shingles for a given entity.
 
@@ -15,6 +16,8 @@ def shingles(entity, w=3):
     >>> shingles('AM')
     frozenset(['am'])
     >>> shingles('Herp derp') == {'her', 'der', 'erp'}
+    True
+    >>> shingles(u'Naïve') == {u'naï', u'aïv', u'ïve'}
     True
     """
 
