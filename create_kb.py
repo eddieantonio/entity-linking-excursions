@@ -1,25 +1,34 @@
 #!/usr/bin/env python
+# coding: UTF-8
 
 """
-Easily creates knowledge base, I guess. Also creates a dot graph, because why
-not?
+Knowledge base stuff. Tools for making knowledge bases and exporting them to
+nifty DOT/graphviz graphs.
 """
 
 from itertools import combinations, chain
+from collections import Counter, namedtuple
+
+# A few data classes.
+Entity = namedtuple('Entity', 'name category')
+EntityInfo = namedtuple('EntityInfo', 'ner_type aliases')
 
 class KnowledgeBase(object):
     def __init__(self):
-        # A dictionary of non-repeating, undirected edges.
-        # Key is min() of the two links.
-        self._links = set()
-        self._entities = set()
+        self._links = Counter()
+        self.entities = {}
+
+    def add_entity(self, entity, entity_info=None):
+        self.entities[entity] = entity_info
+        return entity
 
     def associate(self, a, b):
-        self._entities.add(a)
-        self._entities.add(b)
-        # To remain unique, each pair is always sorted.
+        self.ensure_exists(a)
+        self.ensure_exists(b)
+        # A "canoncial" order for the items in the pair is given
+        # so that (a, b) and (b, a) will always just insert (a, b).
         pair = sorted((a, b))
-        self._links.add(tuple(pair))
+        self._links[tuple(pair)] += 1
 
     def associate_all(self, src, entities):
         for ent in entities:
@@ -29,9 +38,41 @@ class KnowledgeBase(object):
         for a, b in combinations(seq, 2):
             self.associate(a, b)
 
+    def ensure_exists(self, entity):
+        self.entities.setdefault(entity, None)
+
     @property
     def graph(self):
-        return self._entities, self._links
+        return self.entities.keys(), self._links
+
+
+def add_category_entities(kb, category, seq, default_ner='MISC'):
+    """
+    Takes a sequence of tuples of (name, ner_type, aliases) and inserts it in
+    to the knowledge base. All of the items belong to one category.
+
+    Returns a list of all inserted entities.
+    """
+
+    entities = []
+
+    for name, ner_type, aliases in seq:
+        # Coerce a string to a 1-tuple.
+        if not aliases:
+            aliases = ()
+        elif type(aliases) is str:
+            aliases = (aliases,)
+        # Coerce a non-existant NER to the 'MISC' type.
+        if not ner_type:
+            ner_type = default_ner
+
+        entity = Entity(name, category)
+        info = EntityInfo(ner_type, aliases)
+
+        kb.add_entity(entity, info)
+        entities.append(entity)
+
+    return entities
 
 
 def dot_graph(kb):
@@ -40,12 +81,23 @@ def dot_graph(kb):
     entities, vertices = kb.graph
 
     for entity in entities:
-        print('  "%s";' % entity)
+        _ner, aliases = kb.entities.get(entity) or ('MISC', ())
+        # Note: using the hash as the ID is susceptible to collisions,
+        # but it's the easiest thing to do right now.
+        eid = hash(entity)
+
+        name, category = entity
+        
+        line = r'  {eid:d}[label=< <B>{name}</B><BR/><I>{category}</I> >];'
+        print(line.format(**locals()))
 
     print('')
 
-    for pair in vertices:
-        print('  "%s" -- "%s";' % pair)
+    for pair, count in vertices.items():
+        a, b = map(hash, pair)
+        # TODO: incorporate the count in the styles.
+        line = '  {a:d} -- {b:d};' 
+        print(line.format(**locals()))
 
     print("}")
 
@@ -53,18 +105,45 @@ def dot_graph(kb):
 if __name__ == '__main__':
     kb = KnowledgeBase()
 
-    turtles = [n + ' (Ninja Turtle)' for n in
-            ('Michelangelo', 'Donatello', 'Raphael', 'Leonardo')]
+    # Entities...
+    turtles = add_category_entities(kb, 'Ninja Turtle', [
+            ('Michelangelo', None, ('Mike', 'Mikey')),
+            ('Donatello', None, 'Don'),
+            ('Raphael', None, 'Raph'),
+            ('Leonardo', None, 'Leo')
+        ], default_ner='PER')
 
-    # TODO: Uh... entity aliases?
-    painters = ('Michaelangelo', 'Donatello', 'Raphael', 'Leonardo da Vinci')
+    painters = add_category_entities(kb, 'Renaissance Painter', [
+            ('Michalangelo', None, 'Michelangelo di Lodovico Buonarroti Simoni'),
+            ('Donatello', None, 'Donato di Niccolò di Betto Bardi'),
+            ('Raphael', None, 'Raffaello Sanzio da Urbino'),
+            ('Leonardo da Vinci', None, None),
+        ], default_ner='PER')
 
-    kb.clique(chain(('Master Splinter',), turtles))
+    splinter = kb.add_entity(
+            Entity('Splinter', 'Teenage Mutant Ninja Turtles'),
+            EntityInfo('PER', ('Master Splinter')))
+
+    pizza = kb.add_entity(
+        Entity('Pizza', 'Delicious'),
+        EntityInfo('MISC', ()))
+
+    renaissance = kb.add_entity(
+        Entity('Renaissance', 'Cultural movement'),
+        EntityInfo('MISC', ()))
+
+    # Edges...
+    kb.clique(turtles)
     kb.clique(painters)
-    kb.associate_all('pizza', turtles)
-    kb.associate_all('renaissance', painters)
-    kb.associate('Master Splinter', 'renaissance')
 
+    kb.associate_all(pizza, turtles)
+    kb.associate_all(splinter, turtles)
+
+    kb.associate_all(renaissance, painters)
+
+    kb.associate(splinter, renaissance)
+
+    # PRINT DAT GRAPH!
     dot_graph(kb)
-    
+
 
