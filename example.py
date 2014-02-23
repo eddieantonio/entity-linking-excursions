@@ -39,7 +39,7 @@ def create_knowledge_base():
         EntityInfo('MISC', ()))
 
     renaissance = kb.add_entity(
-        Entity('Renaissance', 'Cultural movement'),
+        Entity('Renaissance', 'Historial era'),
         EntityInfo('MISC', ()))
 
     # Edges...
@@ -52,9 +52,38 @@ def create_knowledge_base():
     kb.associate_all(renaissance, painters)
 
     kb.associate(splinter, renaissance)
-    
+
     return kb
 
+def make_d3_obj(kb, db):
+    """
+    Makes an object suitable for export as a D3 JSON object for a
+    force-directed layout.
+    """
+    entity_map, edges = kb.graph
+
+    entities = [{'name': name, 'cat': category}
+                for name, category in entity_map]
+    trigrams = [{'shingle': text} for text in db]
+    nodes = entities + trigrams
+
+    # Link map is needed to map a node item to its index in the node
+    # array/list.
+    link_map = {entity: count
+            for count, entity in enumerate(entity_map)}
+    link_map.update({text: count
+            for count, text in enumerate(db, len(entities))})
+
+    links = []
+    for src, dests in db.items():
+        for dest in dests:
+            links.append({
+                'source': link_map[src],
+                'target': link_map[dest],
+                'value': 1} # TODO: value based on frequency.
+            )
+
+    return {'nodes': nodes, 'links': links}
 
 if __name__ == '__main__':
     import sys
@@ -64,13 +93,16 @@ if __name__ == '__main__':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout)
 
     kb = create_knowledge_base()
+    pairs = kb.entities.items()
+    db = make_database(pairs)
 
     # PRINT DEM GRAPHS!
     if 'shingles' in sys.argv[1:2]:
-        # TODO: This needs to be aware of Entity objects
-        pairs = kb.entities.items()
-        db = make_database(pairs)
         shingles_graph(db, pairs)
+    elif 'json' in sys.argv[1:2]:
+        import json
+        d3_obj = make_d3_obj(kb, db)
+        print(json.dumps(d3_obj))
     else:
         kb_graph(kb)
 

@@ -27,9 +27,6 @@ def make_database(pairs):
             for trigram in trigrams:
                 db[trigram].append(entity)
 
-    #TODO: GET RID OF THIS
-    #from pprint import pprint
-    #pprint(dict(db))
     return db
 
 
