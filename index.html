@@ -13,31 +13,60 @@ Ripped off from:
 <style>
 
 .node {
-  fill: #fff;
-  stroke: #333;
-  stroke-width: 1.5px;
+  cursor: move;
+}
+
+.node text {
+  text-anchor: middle;
 }
 
 .shingle {
   fill: #666;
 }
 
-.entity {
-  fill: #eff;
+.entity text:first-child {
+  font-weight: bold;
+  font-size: 110%;
+}
+
+.category {
+  font-weight: normal;
+  color: #444;
+  font-style: italic;
 }
 
 .link {
   stroke: #999;
   stroke-opacity: .4;
+  marker-mid: url(#head);
+}
+
+#head {
+  fill: #666;
+}
+
+.hidden {
+  display: none;
 }
 
 </style>
 <body>
+  <svg> 
+    <!-- The pointy arrow. -->
+    <defs>
+      <marker id='head' orient='auto' markerWidth='2' markerHeight='4'
+              refX='0.1' refY='2'>
+        <path d='M0,0 V4 L2,2 Z' />
+      </marker>
+    </defs>  
+  </svg>
+
 <script src="http://d3js.org/d3.v3.min.js"></script>
 <script>
 
-var width = 1280,
-    height = 640
+var doc = document.documentElement,
+    width = doc.clientWidth,
+    height = doc.clientHeight,
     minRadius = 10;
 
 
@@ -46,7 +75,7 @@ var force = d3.layout.force()
     .charge(function (node) { return node.name ? -192 : -(15 * minRadius); })
     .size([width, height]);
 
-var svg = d3.select("body").append("svg")
+var svg = d3.select('svg')//select("body").append("svg")
     .attr("width", width)
     .attr("height", height);
 
@@ -59,21 +88,24 @@ d3.json("turtles.json", function(error, graph) {
   var link = svg.selectAll(".link")
       .data(graph.links)
     .enter().append("line")
-      .attr("class", "link");
-      //.style("stroke-width", function(d) { return Math.sqrt(d.value); });
+      .attr("class", "link")
+      .style("stroke-width", function(d) { return Math.sqrt(d.value); });
 
   var node = svg.selectAll(".node")
       .data(graph.nodes)
-    .enter().append("circle")
+    .enter().append("g")
       .attr("class", function (d) {
         return "node " + (d.shingle ? 'shingle' : 'entity');
       })
-      // Make it larger if it's an entity.
-      .attr("r", function (d) { return d.name ? 35 : minRadius; })
       .call(force.drag);
 
-  node.append("title")
-      .text(function(d) { return d.name || d.shingle; });
+  node.append("text")
+      .text(function (d) { return d.name || d.shingle; });
+
+  node.append("text")
+      .attr('class', function (d) { return d.cat ? 'category' : 'hidden'; })
+      .attr('dy', '1em')
+      .text(function (d) { return d.cat });
 
   force.on("tick", function() {
     link.attr("x1", function(d) { return d.source.x; })
@@ -81,8 +113,7 @@ d3.json("turtles.json", function(error, graph) {
         .attr("x2", function(d) { return d.target.x; })
         .attr("y2", function(d) { return d.target.y; });
 
-    node.attr("cx", function(d) { return d.x; })
-        .attr("cy", function(d) { return d.y; });
+        node.attr('transform', function (d) { return 'translate('+ d.x + ',' + d.y+ ')'});
   });
 });
 
